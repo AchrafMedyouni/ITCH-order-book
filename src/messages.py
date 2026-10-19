@@ -104,12 +104,14 @@ def decode_trade(msg):
     price = int.from_bytes(msg[32:36], 'big')
     match_number = int.from_bytes(msg[36:44], 'big')
     return Trade(ts, locate, shares, price, match_number)
+
 def decode_order_executed(msg): 
     locate, ts = decode_header_helper(msg)
     ref = int.from_bytes(msg[11:19], 'big')
     shares = int.from_bytes(msg[19:23], 'big')
     match_number = int.from_bytes(msg[23:31], 'big')
     return OrderExecuted(ts, locate, ref, shares, match_number)
+
 def decode_order_executed_with_price(msg): 
     locate, ts = decode_header_helper(msg)
     ref = int.from_bytes(msg[11:19], 'big')
@@ -117,8 +119,8 @@ def decode_order_executed_with_price(msg):
     match_number = int.from_bytes(msg[23:31], 'big')
     printable = chr(msg[31])
     price = int.from_bytes(msg[32:36], 'big')
-
     return OrderExecutedWithPrice(ts, locate, ref, shares, match_number, price, printable)
+
 def decode_order_cancel(msg): 
     locate, ts = decode_header_helper(msg)
     ref = int.from_bytes(msg[11:19], 'big')
@@ -132,16 +134,19 @@ def decode_order_replace(msg):
     shares = int.from_bytes(msg[27:31], 'big')
     price = int.from_bytes(msg[31:], 'big')
     return OrderReplace(ts, locate, ref,new_ref, shares, price)
+
 def decode_stock_trading_action(msg): 
     locate, ts = decode_header_helper(msg)
     trading_state = chr(msg[19])
     reserved = chr(msg[20])
     reason = msg[21:25].decode('ascii').rstrip()
     return StockTradingAction(ts, locate, trading_state, reserved, reason)
+
 def decode_order_delete(msg): 
     locate, ts = decode_header_helper(msg)
     ref = int.from_bytes(msg[11:19], 'big')
     return OrderDelete(ts,locate,ref)
+
 def decode_stock_directory(msg):
     locate, ts = decode_header_helper(msg)
     market_category = chr(msg[19])
@@ -149,6 +154,15 @@ def decode_stock_directory(msg):
     authenticity = chr(msg[29])
     issue_classification = chr(msg[26])
     return StockDirectory(ts, locate, market_category, round_lot_size, authenticity, issue_classification)
+
+def decode_add_order_mpid(msg): 
+    locate, ts = decode_header_helper(msg)
+    ref = int.from_bytes(msg[11:19], 'big')
+    side  = chr(msg[19])
+    shares = int.from_bytes(msg[20:24], 'big')
+    price = int.from_bytes(msg[32:36], 'big')
+    attr = msg[36:40].decode('ascii').rstrip()
+    return AddOrder(ts, locate, ref, side, shares, price, attr)    
 
 TYPE_MAP = {
     b'A': decode_add_order,
@@ -160,7 +174,8 @@ TYPE_MAP = {
     b'X': decode_order_cancel,
     b'D': decode_order_delete,
     b'U': decode_order_replace,
-    b'P': decode_trade
+    b'P': decode_trade,
+    b'F': decode_add_order_mpid
 }
 def decoder(msg: bytes) -> NamedTuple: 
     """ Decodes a message and returns a representation as  a NamedTuple. """
@@ -174,7 +189,6 @@ if __name__ == '__main__':
     from reader import iter_frames
 
     PATH = sys.argv[1] if len(sys.argv) > 1 else "data/S120825-v50.txt"
-    LOCATE = 24                       # AAPL on 2025-12-08 only
     WANTED = [b'A', b'F', b'E', b'C', b'X', b'D', b'U', b'P']
     PER_TYPE = 3
     LIMIT = 20_000_000                # safety net
@@ -191,8 +205,6 @@ if __name__ == '__main__':
         scanned += 1
         t = msg[0:1]
         if t not in WANTED or seen[t] >= PER_TYPE:
-            continue
-        if int.from_bytes(msg[1:3], 'big') != LOCATE:   # cheap filter before decoding
             continue
         m = decoder(msg)
         seen[t] += 1
