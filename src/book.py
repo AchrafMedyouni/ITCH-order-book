@@ -24,6 +24,10 @@ class OrderBook:
     def add(self, order: Order): 
         if order.ref in self.orders: 
             raise KeyError(f"reference {order.ref} already in order book")
+        if order.side not in ('B', 'S'):
+            raise ValueError(f"side must be 'B' or 'S'; got {order.side}")
+        if order.shares <= 0:
+            raise ValueError(f"shares must be > 0; got {order.shares}")
         else: 
             self.orders[order.ref] = order
         if order.side == 'B':
@@ -59,21 +63,21 @@ class OrderBook:
         if side == 'B':
             level = self.bids[price]
             level.total -= shares 
+            del level.orders[ref]   
             if not level.orders:
                 del self.bids[price]
-            del level.orders[ref]   
         if side == 'S':
             level = self.asks[price]
-            level.total -= shares 
+            level.total -= shares
+            del level.orders[ref]
             if not level.orders:
                 del self.asks[price]
-            del level.orders[ref]
     def execute(self, ref: int, shares: int):
         if ref not in self.orders:
             raise KeyError(f'reference {ref} not in orderbook') 
         if shares <= 0:
             raise ValueError(f'shares must be > 0; got {shares}')
-        order = self.order[ref] 
+        order = self.orders[ref] 
         if shares > order.shares: 
             raise ValueError(f'shares superior to shares in the order ({shares} > {order.shares})')
         side = order.side
